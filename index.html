@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<!-- 
+  TODO: 2020-12-05
+    https://threejs.org/docs/index.html#manual/en/introduction/WebGL-compatibility-check
+  TODO: 2020-12-05
+    <script type="module">
+    import * as THREE from './resources/threejs/r122/build/three.module.js';
+    </script>
+-->
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebGL - Three JS - GLSL</title>
+  <script src="libs/three.js"></script>
+  <script src="libs/OrbitControls.js"></script>
+  <script id="vertexShader" type="x-shader/x-vertex">
+    // basic pass through
+    uniform float iTime;
+    varying vec2 vUv;
+    void main() {
+      vUv=uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      /*
+      vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+      gl_Position = projectionMatrix * mvPosition;
+      */
+      //vec3 newPosition = position * abs(sin(iTime) * .5 + 1.0);
+      //vec3 newPosition = position + normal * (sin(iTime) * .1);
+      ////vec3 newPosition = position + normal * sin(iTime * normal) * .1 + normal * .1 * sin(iTime);
+      //gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      ////gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+
+    } 
+
+
+  </script>
+  <script id="fragmentShader" type="x-shader/x-fragment">
+    uniform float iTime;
+    uniform vec2 iResolution;
+    varying vec2 vUv;
+    void main() {
+      vec2 uv = vUv;
+      vec2 p = (2. * uv - 1.);
+      float d = .01;
+      vec3 col;
+      float l = length(p * .5);
+      float t = iTime * .2;
+      for(int i=0;i<=6;i++) {
+        uv+=p/l*(cos(l-t));
+        col[i]=d/length(mod(uv,1.0)-.5);
+      }
+      gl_FragColor=vec4(col/l,0.);
+    }
+  </script>
+
+  <script id="fragmentShaderTexture" type="x-shader/x-fragment">
+      uniform sampler2D baseTexture;
+      uniform float baseSpeed;
+      uniform sampler2D noiseTexture;
+      uniform float noiseScale;
+      uniform float alpha;
+      uniform float time;
+      
+      varying vec2 vUv;
+      void main() 
+      {
+        vec2 uvTimeShift = vUv + vec2( -0.7, 1.5 ) * time * baseSpeed;	
+        vec4 noiseGeneratorTimeShift = texture2D( noiseTexture, uvTimeShift );
+        vec2 uvNoiseTimeShift = vUv + noiseScale * vec2( noiseGeneratorTimeShift.r, noiseGeneratorTimeShift.b );
+        vec4 baseColor = texture2D( baseTexture, uvNoiseTimeShift );
+      
+        baseColor.a = alpha;
+        gl_FragColor = baseColor;
+      }  
+      </script>
+
+  </script>
+  <style>
+    html,
+    body {
+      background-color: black;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      /* overflow: hidden; */
+      text-align: center;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      font-size: 1.2em;
+      font-weight: bold;
+      background-color: white;
+      padding: 0.05em;
+      margin-bottom: 0.1em;
+    }
+
+    canvas {
+      /* outline: 1px solid red; */
+      outline: none;
+      width: 300px;
+      height: 300px;
+      margin: auto;
+    }
+
+    nav {
+      font-size: 1em;
+      color: lightblue
+    }
+
+    nav a {
+      color: white;
+      display: inline-block;
+      text-decoration: none;
+      border: grey 1px solid;
+      border-radius: 6px;
+      margin: 0.1em;
+      padding: 0.1em;
+      min-width: 1.2em;
+    }
+
+    p {
+      font-size: 0.6em;
+      color: white;
+      padding-top: 2px;
+      margin: 0 auto 0 auto;
+      width: 300px;
+    }
+
+    #lava, #objlava {
+      background-image: url("lava.jpg");
+    }
+
+    #water, #objwater {
+      background-image: url("water.jpg");
+      background-position-x: 50px;
+    }
+
+    #star, #objstar {
+      background-image: url("star.png");
+      background-position: center;
+    }
+
+    #redtiles, #objred {
+      background-image: url("tiles-red.jpg");
+      background-position: 4px 4px;
+    }
+    
+    #whitetiles, #objwhite {
+      background-image: url("tiles-white.jpg");
+      background-position: 4px 4px;
+    }
+
+    #fogblack {
+      background-color: black;
+    }
+
+    #fogwhite {
+      background-color: white;
+    }
+
+    #foggrey {
+      background-color: grey;
+    }
+
+    #fogblue {
+      background-color: #3399cc;
+    }
+
+    #fogred {
+      background-color: red;
+    }
+
+    @media only screen and (min-height: 700px) {
+      header {
+        font-size: 1.7em;
+      }
+      nav {
+        font-size: 2em;
+      }
+      nav a {
+        border: grey 2px solid;
+        border-radius:10px;
+      }
+
+      p {
+        font-size: 1em;
+        padding-top: 4px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>WebGL-Three JS-GLSL</header>
+    <nav>
+      <a href="#" id="ROTATE">Rotate</a>
+      <a href="#" id="MIRROR">Mirror</a>
+      <a href="#" id="TIME">Time</a>
+    </nav>
+    <nav>
+      <a href="#" id="sphere">Sp</a>
+      <a href="#" id="cube">Cu</a>
+      <a href="#" id="text">3JS</a>
+      <a href="#" id="torus">To</a>
+      <a href="#" id="torusKnot">Tk</a>
+    </nav>
+    <canvas id="canvas" height="300"></canvas>
+    <p>Fog</p>
+    <nav>
+      <a href="#" id="fogblack">&nbsp;</a>
+      <a href="#" id="fogwhite">&nbsp;</a>
+      <a href="#" id="foggrey">&nbsp;</a>
+      <a href="#" id="fogblue">&nbsp;</a>
+      <a href="#" id="fogred">&nbsp;</a>
+    </nav>
+
+    <p>Object</p>
+    <nav>
+      <a href="#" id="objred">&nbsp;</a>
+      <a href="#" id="objwhite">&nbsp;</a>
+      <a href="#" id="objlava">&nbsp;</a>
+      <a href="#" id="objwater">&nbsp;</a>
+      <a href="#" id="objstar">&nbsp;</a>
+    </nav>
+
+    <p>Ground</p>
+    <nav>
+      <a href="#" id="redtiles">&nbsp;</a>
+      <a href="#" id="whitetiles">&nbsp;</a>
+      <a href="#" id="lava">&nbsp;</a>
+      <a href="#" id="water">&nbsp;</a>
+      <a href="#" id="star">&nbsp;</a>
+    </nav>
+
+
+  </main>
+  <script>
+    const canvas = document.getElementById('canvas');
+    let canvasRect = canvas.getBoundingClientRect(); // TODO: event listener for resize
+    var ROTATE = false;
+    var ROTATE_CUBEREF = true;
+    var WIDTH = canvas.width;
+    var HEIGHT = canvas.height;
+    let MIRROR = false;
+    let TIME = true;
+    let preMirrorGeo;
+    let preMirrorMat;
+    var camera, scene, renderer;
+    var uniforms, material, mesh;
+    let customMaterialLava, customUniformsLava;
+    let customMaterialWater, customUniformsWater;
+    const lightColor = 0xFFFFFF;
+    const lightColorLava = 0xFFA400;
+    const lightColorWater = 0x0000FF;
+    const lightIntensity = 0;
+    const lightIntensityLava = 5;
+    const lightIntensityWater = 3;
+    const lightAmbientFogBlack = 1.0;
+    const lightAmbientFogWhite = 0.1;
+    const lightAmbientFogGrey = 1.0;
+    const lightAmbientFogBlue = 1.0;
+    const lightAmbientFogRed = 0.5;
+
+    // TEXTURES
+    //   - RED TILES
+    let textureTilesRed = new THREE.TextureLoader().load('tiles-red.jpg');
+    let materialTilesRed = new THREE.MeshBasicMaterial({ map: textureTilesRed,
+    side: THREE.DoubleSide });
+        textureTilesRed.wrapS = textureTilesRed.wrapT = THREE.RepeatWrapping;
+    
+    // TEXTURES
+    //   - WHITE TILES
+    let textureTilesWhite = new THREE.TextureLoader().load('tiles-white.jpg');
+    let materialTilesWhite = new THREE.MeshBasicMaterial({ map: textureTilesWhite,
+    side: THREE.DoubleSide });
+        textureTilesWhite.wrapS = textureTilesWhite.wrapT = THREE.RepeatWrapping;
+    
+    var startTime = Date.now();
+    var clock = new THREE.Clock();
+
+    // CONTROLS
+    let controls;
+    //controls.enableZoom = false;
+    
+    // PICKING
+    const pickTargetList = [];
+    const pickRaycaster = new THREE.Raycaster();
+    const pickMouse = new THREE.Vector2();
+    document.addEventListener('mousedown', onDocumentMouseDown, false);
+
+    // MIRROR
+    const mirrorRenderTarget = new THREE.WebGLCubeRenderTarget( 128,
+      { 
+        format: THREE.RGBFormat, 
+        generateMipmaps: true, 
+        minFilter: THREE.LinearMipmapLinearFilter
+       }
+    );
+    const mirrorCamera = new THREE.CubeCamera( 1, 1000, mirrorRenderTarget );
+    const mirrorMaterial = new THREE.MeshPhongMaterial({ shininess: 50, color: 0xffffff, specular: 0x999999, envMap: mirrorRenderTarget.texture });
+    //////
+
+    // OBJECTS
+    // - reference object
+    const REFOBJECT = true;
+    const cubeRoot = new THREE.Object3D();
+    const cubeRefGeo = new THREE.BoxBufferGeometry(0.4, 0.4, 0.4);
+    const cubeRefMat = new THREE.MeshPhysicalMaterial({ color: 0x8888ff, side: THREE.DoubleSide });
+    const cubeRefMes = new THREE.Mesh(cubeRefGeo, cubeRefMat);
+    cubeRefMes.position.z = -1.30;
+    const cubeRefPos = new THREE.Vector3(); // use in render to get world position
+
+    pickTargetList.push(cubeRefMes); // for picking
+    cubeRoot.add(cubeRefMes);
+
+    // - objects
+    const sphere = new THREE.SphereBufferGeometry(0.8,32,32);
+    const cube = new THREE.BoxBufferGeometry(1, 1, 1);
+    //const cone = new THREE.ConeBufferGeometry(0.4, 0.8, 32);
+    const torus = new THREE.TorusBufferGeometry(0.6,0.2,16,32);
+    const torusKnot = new THREE.TorusKnotBufferGeometry(.55, .15, 100, 100);
+
+    // TEXTURES
+    // TEXTURE - NOISE
+    const noiseTexture = new THREE.TextureLoader().load( 'cloud.png' );
+    noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping; 
+    // TEXTURE - LAVA
+    const lavaTexture = new THREE.TextureLoader().load( 'lava.jpg' );
+    lavaTexture.wrapS = lavaTexture.wrapT = THREE.RepeatWrapping;
+    // TEXTURE - WATER
+    const waterTexture = new THREE.TextureLoader().load( 'water.jpg' );
+	  waterTexture.wrapS = waterTexture.wrapT = THREE.RepeatWrapping; 
+
+    const textMat = materialTilesRed;
+   // const textMes = new THREE.Mesh(textGeo, textMat );
+
+    // FOG
+    const FOG = 0.25;
+    const fog = new THREE.FogExp2(0x000000, FOG);
+
+    // LIGHTS
+    const lightAmbient = new THREE.AmbientLight(0xFFFFFF, lightAmbientFogBlack);
+    const lightDirectional = new THREE.DirectionalLight(0xFFFFFF, 1.0);
+    const lightRectArea = new THREE.RectAreaLight(lightColorLava, 10.0, 2.3, 2.3);
+    lightDirectional.position.set(3.0, -3.0, -1.5);
+    lightDirectional.target.position.set(-1.5, 0, 0);
+    lightRectArea.position.y = -1.0;; // set as ground
+    lightRectArea.rotation.x =  Math.PI / 2;
+    lightRectArea.lookAt( 0, 0, 0 );
+
+    function onDocumentMouseDown( event ) {
+      //event.preventDefault();
+      pickMouse.x = (( event.clientX - canvasRect.x) / WIDTH ) * 2 - 1;
+      pickMouse.y = - (( event.clientY - canvasRect.y) / HEIGHT ) * 2 + 1;
+      pickRaycaster.setFromCamera(pickMouse, camera);
+      const intersects = pickRaycaster.intersectObjects(pickTargetList);
+      if (intersects.length > 0) {
+        if (ROTATE_CUBEREF) {
+          intersects[0].object.material.color.setHex(0xffffff);
+          ROTATE_CUBEREF = false;
+        }
+        else {
+          intersects[0].object.material.color.setHex(0x8888ff);
+          ROTATE_CUBEREF = true;
+        };
+        render();
+      }
+    }
+
+    // NAVIGATION
+    document.getElementById('ROTATE').addEventListener('click', function () {
+      ROTATE = !ROTATE;
+    });
+
+    document.getElementById('MIRROR').addEventListener('click', function () {
+      if(!MIRROR) {
+        //preMirrorGeo = mesh.geometry;
+        preMirrorMat = mesh.material;
+        mesh.material = mirrorMaterial;
+        //mesh.geometry = sphere;
+        MIRROR = true;
+      }
+      else {
+        //mesh.geometry = preMirrorGeo;
+        mesh.material = preMirrorMat;
+        MIRROR = false;
+      }
+    });
+
+    document.getElementById('TIME').addEventListener('click', function () {
+      TIME = !TIME;
+    });
+
+    document.getElementById('sphere').addEventListener('click', function () {
+      mesh.geometry = sphere;
+    });
+
+    document.getElementById('cube').addEventListener('click', function () {
+        mesh.geometry = cube;
+    });
+
+    document.getElementById('text').addEventListener('click', function () {
+        mesh.geometry = textGeo;
+    });
+
+    document.getElementById('torus').addEventListener('click', function () {
+      mesh.geometry = torus;
+    });
+
+    document.getElementById('torusKnot').addEventListener('click', function () {
+      mesh.geometry = torusKnot;
+    });
+
+    document.getElementById('fogblue').addEventListener('click', function () {
+      scene.background = new THREE.Color(0x3399cc);
+      scene.fog = new THREE.FogExp2(0x3399cc, FOG);
+      lightAmbient.intensity = lightAmbientFogBlue;
+    });
+
+    document.getElementById('fogred').addEventListener('click', function () {
+      scene.background = new THREE.Color(0xff0000);
+      scene.fog = new THREE.FogExp2(0xff0000, FOG);
+      lightAmbient.intensity = lightAmbientFogRed;
+    });
+
+    document.getElementById('fogblack').addEventListener('click', function () {
+      scene.background = new THREE.Color(0x000000);
+      scene.fog = new THREE.FogExp2(0x000000, FOG);
+      lightAmbient.intensity = lightAmbientFogBlack;
+    });
+
+    document.getElementById('fogwhite').addEventListener('click', function () {
+      scene.background = new THREE.Color(0xffffff);
+      scene.fog = new THREE.FogExp2(0xffffff, FOG);
+      lightAmbient.intensity = lightAmbientFogWhite;
+    });
+
+    document.getElementById('foggrey').addEventListener('click', function () {
+      scene.background = new THREE.Color(0x888888);
+      scene.fog = new THREE.FogExp2(0x888888, FOG);
+      lightAmbient.intensity = lightAmbientFogGrey;
+    });
+
+    document.getElementById('objred').addEventListener('click', function () {
+      mesh.material = materialTilesRed;
+      MIRROR = false;
+    });
+
+    document.getElementById('objwhite').addEventListener('click', function () {
+      mesh.material = materialTilesWhite;
+      MIRROR = false;
+    });
+
+    document.getElementById('objlava').addEventListener('click', function () {
+      mesh.material = customMaterialLava;
+      MIRROR = false;
+    });
+
+    document.getElementById('objwater').addEventListener('click', function () {
+      mesh.material = customMaterialWater;
+      MIRROR = false;
+    });
+
+    document.getElementById('objstar').addEventListener('click', function () {
+      mesh.material = material;
+      MIRROR = false;
+    });
+
+    document.getElementById('redtiles').addEventListener('click', function () {
+      groundMes.material = materialTilesRed;
+      lightRectArea.color.setHex(lightColor);
+      lightRectArea.intensity = lightIntensity;
+    });
+
+    document.getElementById('whitetiles').addEventListener('click', function () {
+      groundMes.material = materialTilesWhite;
+      lightRectArea.color.setHex(lightColor);
+      lightRectArea.intensity = lightIntensity;
+    });
+
+    document.getElementById('lava').addEventListener('click', function () {
+      groundMes.material = customMaterialLava;
+      lightRectArea.color.setHex(lightColorLava);
+      lightRectArea.intensity = lightIntensityLava;
+    });
+
+    document.getElementById('water').addEventListener('click', function () {
+      groundMes.material = customMaterialWater;
+      lightRectArea.color.setHex(lightColorWater);
+      lightRectArea.intensity = lightIntensityWater;
+    });
+
+    document.getElementById('star').addEventListener('click', function () {
+      groundMes.material = material;
+      lightRectArea.color.setHex(lightColor);
+      lightRectArea.intensity = lightIntensity;
+    });
+
+    let textGeo;
+
+    init();
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(
+        45,
+        1,
+        1,
+        1000
+      );
+      camera.position.z = 4;
+
+      // RENDERER
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      renderer.setSize(WIDTH, HEIGHT);
+      controls = new THREE.OrbitControls(camera, canvas);
+      controls.enablePan = false;
+      controls.maxPolarAngle = 1.8;
+      controls.minPolarAngle = 0.0;
+      controls.maxDistance = 5;
+      controls.minDistance = 2.5;
+      //controls.autoRotate = true;
+
+      // SHADER - MAIN
+      uniforms = {
+        iTime: { type: "f", value: 10000.0 },
+        iResolution: { type: "v2", value: new THREE.Vector2() }
+      };
+      uniforms.iResolution.value.x = WIDTH;
+      uniforms.iResolution.value.y = HEIGHT;
+
+      // TODO:
+      // var uniforms = THREE.UniformsUtils.merge([
+      //   THREE.UniformsLib["ambient"],
+      //   THREE.UniformsLib["lights"]
+      // ]);
+
+      material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: document.getElementById('vertexShader').textContent,
+        fragmentShader: document.getElementById('fragmentShader').textContent,
+        side: THREE.DoubleSide,
+        // TODO: lights: true
+      });
+
+      //  SHADER - UNIFORMS - LAVA
+      customUniformsLava = {
+        baseTexture: { type: "t", value: lavaTexture },
+        baseSpeed: { type: "f", value: 0.05 },
+        noiseTexture: { type: "t", value: noiseTexture },
+        noiseScale: { type: "f", value: 0.5337 },
+        alpha: { type: "f", value: 1.0 },
+        time: { type: "f", value: 1.0 }
+      };
+
+
+      //  SHADER - UNIFORMS - WATER
+      customUniformsWater = {
+        baseTexture: { type: "t", value: waterTexture },
+        baseSpeed: { type: "f", value: 1.15 },
+        noiseTexture: { type: "t", value: noiseTexture },
+        noiseScale: { type: "f", value: 0.2 },
+        alpha: { type: "f", value: 0.8 },
+        time: { type: "f", value: 1.0 }
+      };
+
+      // MATERIAL - LAVA
+      customMaterialLava = new THREE.ShaderMaterial(
+        {
+          uniforms: customUniformsLava,
+          vertexShader: document.getElementById('vertexShader').textContent,
+          fragmentShader: document.getElementById('fragmentShaderTexture').textContent
+        });
+      customMaterialLava.side = THREE.DoubleSide;
+
+      // MATERIAL - WATER
+      customMaterialWater = new THREE.ShaderMaterial(
+        {
+          uniforms: customUniformsWater,
+          vertexShader: document.getElementById('vertexShader').textContent,
+          fragmentShader: document.getElementById('fragmentShaderTexture').textContent
+        });
+      customMaterialWater.side = THREE.DoubleSide;
+
+      // TEXT
+      const loader = new THREE.FontLoader();
+      loader.load('helvetiker_regular.typeface.json', function (result) {
+        font = result;
+        createText();
+      });
+
+      function createText() {
+        textGeo = new THREE.TextGeometry( '3 JS', {
+          font: font,
+          size: 0.6,
+          height: 0.2,
+          curveSegments:10,
+          weight: "normal",
+          bevelThickness:0,
+          bevelSize:0,
+          bevelSegments:1,
+          bevelEnabled:false
+        });
+        textGeo.computeBoundingBox();
+        textGeo.center();
+      }
+
+
+      // --- ground
+      const groundGeo = new THREE.PlaneBufferGeometry(2.3, 2.3, 1, 1);
+      groundMes = new THREE.Mesh(groundGeo, customMaterialLava);
+      groundMes.position.y = -1.1;
+      groundMes.rotation.x = Math.PI / 2;
+
+      var geometry = torusKnot;
+
+
+      mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
+
+      scene.add(cubeRoot);
+      scene.add(groundMes);
+      
+      scene.fog = fog;
+
+      scene.add(lightAmbient);
+      scene.add(lightDirectional);
+      scene.add(lightDirectional.target);
+      scene.add(lightRectArea); 
+
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      render();
+    }
+
+    function render() {
+      let delta = clock.getDelta();
+      if( TIME ) {
+        uniforms.iTime.value += delta;
+        customUniformsLava.time.value += delta;
+        customUniformsWater.time.value += delta;
+      }
+
+      if ( ROTATE ) {
+        mesh.rotation.y += .01;
+        mesh.rotation.x -= .01;
+      }
+
+      if ( ROTATE && REFOBJECT ) {
+        cubeRefMes.rotation.y += .01;
+        cubeRefMes.rotation.x -= .01;
+      }
+      if ( ROTATE_CUBEREF && REFOBJECT ) {
+      cubeRoot.rotation.y += 0.01;
+      cubeRefMes.getWorldPosition(cubeRefPos);
+      cubeRoot.rotation.x = cubeRefPos.x / 2;
+      }
+
+      if( MIRROR ) {
+        mesh.visible = false;
+        mirrorCamera.update( renderer, scene );
+        mesh.visible = true;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+  </script>
+</body>
+
+</html>
